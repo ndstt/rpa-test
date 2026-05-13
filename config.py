@@ -1,0 +1,6 @@
+USERNAME = "naddanai_turbo@outlook.com"
+PASSWORD = "th5111787"
+URL = "https://www.skooldio.com"
+LOGIN_URL = "https://www.skooldio.com/login"
+MAIN_PAGE_URL = "https://www.skooldio.com/"
+COURSE_PAGE_URL = "https://www.skooldio.com/browse?type=COURSE"

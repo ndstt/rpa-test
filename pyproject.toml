@@ -1,0 +1,15 @@
+[project]
+name = "rpa-test"
+version = "0.1.0"
+description = "Local RPA and Selenium practice scripts"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4>=4.12.3",
+    "selenium>=4.32.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
