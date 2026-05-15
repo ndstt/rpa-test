@@ -4,12 +4,14 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+
 from config import *
 
-def login(driver: webdriver.Chrome, wait: WebDriverWait, config: dict) -> None:
+# login
+def login(driver: webdriver.Chrome, wait: WebDriverWait) -> None:
     try:
         print("|----------------LOGIN----------------|")
-        driver.get(config["login_url"])
+        driver.get(LOGIN_URL)
 
         # wait for cookie button appear and accept it
         cookie_button = wait.until(
@@ -25,13 +27,13 @@ def login(driver: webdriver.Chrome, wait: WebDriverWait, config: dict) -> None:
         login_button = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
 
         # Fill in the login form and submit
-        username_input.send_keys(config["username"])
-        password_input.send_keys(config["password"])
+        username_input.send_keys(USERNAME)
+        password_input.send_keys(PASSWORD)
         login_button.click()
 
         # Wait until the URL changes to the main page URL to confirm login success
         wait.until(
-            EC.url_to_be(config["main_page_url"])
+            EC.url_to_be(MAIN_PAGE_URL)
         )
         print("Login success")
 
@@ -42,10 +44,49 @@ def login(driver: webdriver.Chrome, wait: WebDriverWait, config: dict) -> None:
     print("|-------------------------------------|")
     print()
 
-def get_courses_url(driver: webdriver.Chrome, wait: WebDriverWait, config: dict) -> None:
+# get course categories
+def get_course_categories(driver: webdriver.Chrome, wait: WebDriverWait) -> list:
+    try:
+        print("|---------------GETTING COURSE CATEGORIES---------------|")
+        driver.get(COURSE_PAGE_URL)
+
+        # clear the screen
+        close_popup = wait.until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "img.widget.widget-popupcloser"))
+        )
+        print("popup found, try to close it...")
+        close_popup.click()
+        print("popup closed")
+
+        # Wait for the course categories to be present and get them
+        course_categories_box = wait.until(
+            EC.presence_of_all_elements_located((
+                By.XPATH,
+                "//p[normalize-space()='เลือกหมวดหมู่']/following-sibling::div[1]"
+            ))
+        )
+
+        course_categories = course_categories_box.find_elements(By.CSS_SELECTOR, "span[font-size='2', font-weight='medium']")
+
+        category_url_list = []
+        for course_category in course_categories:
+            print()
+            category_url_list.append(COURSE_CATEGORY_PREFIX + course_category.text.strip().lower())
+
+        print("Already get all course category URLs")
+        return category_url_list
+
+    except Exception as e:
+        print("Failed to get course categories:")
+        print(e)
+
+    print("|------------------------------------------------------|")
+
+# get courses url in each category
+def get_courses_url_in_category(driver: webdriver.Chrome, wait: WebDriverWait, course_category_url: str) -> list:
     try:
         print("|---------------GETTING COURSE---------------|")
-        driver.get(config["course_page_url"])
+        driver.get(course_category_url)
 
         while True:
             print("Try clicking 'Load More' button...")
@@ -69,8 +110,8 @@ def get_courses_url(driver: webdriver.Chrome, wait: WebDriverWait, config: dict)
         course_boxes = wait.until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href^='/courses/']"))
         )
-        
-        course_url_list = [course_box.get_attribute("href") for course_box in course_boxes]
+
+        course_url_list = [MAIN_PAGE_URL + course_box.get_attribute("href") for course_box in course_boxes]
         print("Already get all course URLs")
         return course_url_list
 
@@ -79,6 +120,15 @@ def get_courses_url(driver: webdriver.Chrome, wait: WebDriverWait, config: dict)
         print(e)
 
     print("|--------------------------------------------|")
+
+# get courses url in every category
+def get_courses_url(driver: webdriver.Chrome, wait: WebDriverWait) -> list:
+    categories = get_course_categories(driver, wait)
+    course_url_list = []
+    for category_url in categories:
+        courses_in_category = get_courses_url_in_category(driver, wait, category_url)
+        course_url_list.extend(courses_in_category)
+    return course_url_list
 
 def get_course_detail(driver: webdriver.Chrome, wait: WebDriverWait, course_suffix: str) -> None:
     try:
@@ -130,21 +180,9 @@ if __name__ == "__main__":
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 10)
 
-    login(
-        driver, 
-        wait, 
-        config = {
-            "username": USERNAME,
-            "password": PASSWORD,
-            "login_url": LOGIN_URL,
-            "main_page_url": MAIN_PAGE_URL
-        }
-    )
+    login(driver, wait)
+    get_course_categories(driver, wait)
+    '''course_urls = get_courses_url(driver, wait)
 
-    course_url_list = get_courses_url(
-        driver,
-        wait,
-        config = {
-            "course_page_url": COURSE_PAGE_URL
-        }
-    )
+    for course_url in course_urls:
+        print(course_url)'''
