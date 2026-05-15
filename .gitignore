@@ -4,5 +4,6 @@
 /.pytest_cache/.pytest_cache
 
 /.venv
+config.py
 
 uv.lock
