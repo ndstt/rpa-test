@@ -91,12 +91,6 @@ def get_course_categories(driver: webdriver.Chrome, wait: WebDriverWait) -> list
 
     print("|------------------------------------------------------|")
 
-def course_count(driver):
-    return len(set(
-        a.get_attribute("href")
-        for a in driver.find_elements(By.CSS_SELECTOR, "a[href^='/courses/']")
-    ))
-
 # get courses url and its category in each category. each course can be in multiple category
 def get_courses_url_in_category(driver: webdriver.Chrome, wait: WebDriverWait, course_category: str) -> tuple:
     try:
