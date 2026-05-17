@@ -6,7 +6,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 
-from data import CourseDetail
+from data import *
 from config import *
 
 # login
@@ -67,6 +67,11 @@ def get_course_categories(driver: webdriver.Chrome, wait: WebDriverWait) -> list
             "//p[normalize-space()='เลือกหัวข้อ']/following-sibling::div[1]"
         )
 
+        driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center'});",
+            course_categories_box
+        )
+
         labels = course_categories_box.find_elements(By.CSS_SELECTOR, "label")
         categories = []
 
@@ -86,38 +91,86 @@ def get_course_categories(driver: webdriver.Chrome, wait: WebDriverWait) -> list
 
     print("|------------------------------------------------------|")
 
-# get courses url in each category
-def get_courses_url_in_category(driver: webdriver.Chrome, wait: WebDriverWait, course_category_url: str) -> list:
+def course_count(driver):
+    return len(set(
+        a.get_attribute("href")
+        for a in driver.find_elements(By.CSS_SELECTOR, "a[href^='/courses/']")
+    ))
+
+# get courses url and its category in each category. each course can be in multiple category
+def get_courses_url_in_category(driver: webdriver.Chrome, wait: WebDriverWait, course_category: str) -> tuple:
     try:
-        print(f"|---------------GETTING COURSE IN {course_category_url.upper()}---------------|")
-        driver.get(COURSE_CATEGORY_PREFIX + course_category_url)
+        print(f"|---------------GETTING COURSE IN {course_category.upper()}---------------|")
+        driver.get(COURSE_CATEGORY_PREFIX + course_category)
 
-        while True:
-            print("Try clicking 'Load More' button...")
-            try:
-                # find the "Load More" button
-                load_more_button = wait.until(lambda d: d.execute_script("""
-                    return [...document.querySelectorAll('button')]
-                    .find(btn => btn.textContent.includes('ดูคอร์สเพิ่ม'));
-                """))
-                # scroll the "Load More" button into view and click it
-                driver.execute_script(
-                    "arguments[0].scrollIntoView({block: 'center'});",
-                    load_more_button
-                )
-                load_more_button.click()
-            except TimeoutException:
-                print("No more 'Load More' button found. All courses should be loaded.")
-                break
+        course_link_selector = "a[href^='/courses/']"
+        load_more_text = "\u0e14\u0e39\u0e04\u0e2d\u0e23\u0e4c\u0e2a\u0e40\u0e1e\u0e34\u0e48\u0e21"
 
-        # wait for the course boxes to be present and get them
-        course_boxes = wait.until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[href^='/courses/']"))
+        def get_course_urls() -> list:
+            return driver.execute_script(
+                """
+                return [...new Set(
+                    [...document.querySelectorAll(arguments[0])]
+                        .map(a => a.href)
+                        .filter(Boolean)
+                )];
+                """,
+                course_link_selector
+            )
+
+        def find_load_more_button():
+            return driver.execute_script(
+                """
+                return [...document.querySelectorAll('button')]
+                    .find(btn =>
+                        btn.textContent.includes(arguments[0]) &&
+                        !btn.disabled &&
+                        (btn.offsetWidth || btn.offsetHeight || btn.getClientRects().length)
+                    ) || null;
+                """,
+                load_more_text
+            )
+
+        wait.until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, course_link_selector))
         )
 
-        course_url_list = [MAIN_PAGE_URL + course_box.get_attribute("href") for course_box in course_boxes]
-        print("Already get all course URLs")
-        return course_url_list
+        while True:
+            before_count = len(get_course_urls())
+            print(f"Try clicking 'Load More' button... ({before_count} courses loaded)")
+
+            try:
+                load_more_button = wait.until(lambda d: find_load_more_button())
+            except TimeoutException:
+                print("No more 'Load More' button found.")
+                break
+
+            driver.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});",
+                load_more_button
+            )
+            driver.execute_script("arguments[0].click();", load_more_button)
+
+            try:
+                wait.until(lambda d: len(get_course_urls()) > before_count)
+            except TimeoutException:
+                after_count = len(get_course_urls())
+                if after_count == before_count:
+                    print("Clicked 'Load More', but no new courses appeared. Stop to avoid infinite loop.")
+                    break
+
+        course_urls = get_course_urls()
+        course_url_set = set(course_urls)
+        course_and_category = [
+            CourseCategory(
+                url=url,
+                category=course_category
+            )
+            for url in course_urls
+        ]
+
+        print(f"Already get all course URLs ({len(course_url_set)} courses)")
+        return course_and_category, course_url_set
 
     except Exception as e:
         print("Failed to get course:")
@@ -125,16 +178,18 @@ def get_courses_url_in_category(driver: webdriver.Chrome, wait: WebDriverWait, c
 
     print("|-----------------------------------------------------------------------|")
 
-# get courses url in every category
-def get_courses_url(driver: webdriver.Chrome, wait: WebDriverWait) -> list:
+# get courses url and its category in every category
+def get_courses_url(driver: webdriver.Chrome, wait: WebDriverWait) -> tuple:
     categories = get_course_categories(driver, wait)
-    course_url_list = []
+    course_and_category_list = []
+    course_url_list = set()
 
     for category_url in categories:
-        courses_in_category = get_courses_url_in_category(driver, wait, category_url) or []
-        course_url_list.extend(courses_in_category)
+        courses_in_category, course_urls = get_courses_url_in_category(driver, wait, category_url)
+        course_and_category_list.extend(courses_in_category)
+        course_url_list.update(course_urls)
 
-    return course_url_list
+    return course_and_category_list, course_url_list
 
 def get_course_detail(driver: webdriver.Chrome, wait: WebDriverWait, course_suffix: str) -> None:
     try:
@@ -183,6 +238,7 @@ if __name__ == "__main__":
     options = Options()
     options.add_argument("--start-maximized")
 
+    scraped_data: list[CourseDetail] = []
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 10)
 
