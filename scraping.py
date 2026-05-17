@@ -217,11 +217,6 @@ def get_course_detail(driver: webdriver.Chrome, wait: WebDriverWait, course_suff
             "div[color='COURSE_DETAILS'][font-weight='exLight']"
         ).text.strip()
 
-        # review detail
-        review_card = driver.find_element(By.ID, "course-reviews")
-        reviews = []
-
-
     except Exception as e:
         print("Failed to get course detail:")
         print(e)

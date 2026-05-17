@@ -8,11 +8,15 @@ class CourseDetail(TypedDict):
     instructor_name: str
     avg_rating: float # from 0 to 5
     total_reviews: int
+    overall_satisfaction_percentage: int # from 0 to 100
+    content_satisfaction_percentage : int # from 0 to 100
+    instructor_satisfaction_percentage: int # from 0 to 100
+    content_arrangement_satisfaction_percentage: int # from 0 to 100
 
 class CourseCategory(TypedDict):
     course_url: str
     category: str
 
-class InstructorDetail(TypedDict):
+class InstructorDetail(TypedDict, total=False):
     name: str
-    position: str
+    position: str # if any. the instructor can be institute or company
