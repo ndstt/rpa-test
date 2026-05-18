@@ -23,3 +23,4 @@ class CourseReviewHighlight(TypedDict):
 class InstructorDetail(TypedDict, total=False):
     name: str
     position: str # if any. the instructor can be institute or company
+

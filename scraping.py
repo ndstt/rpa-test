@@ -55,7 +55,7 @@ def login(driver: webdriver.Chrome, wait: WebDriverWait) -> None:
 
     print("|-------------------------------------|")
     print()
-    
+
 # get course categories
 def get_course_categories(driver: webdriver.Chrome, wait: WebDriverWait) -> list:
     try:
@@ -296,8 +296,9 @@ def get_course_detail(driver: webdriver.Chrome, wait: WebDriverWait, course_url:
 
         # wait for the course title to be present and get it
         course_hero_card = wait.until(
-            EC.presence_of_element_located((By.ID, "hero-card"))
+            EC.presence_of_element_located((By.ID, "hero-detail"))
         )
+        print("Course hero card found, extracting course detail...")
 
         # course hero
         course_title = course_hero_card.find_element(
@@ -425,7 +426,7 @@ if __name__ == "__main__":
 
     scraped_data: list[CourseDetail] = []
     driver = webdriver.Chrome(options=options)
-    wait = WebDriverWait(driver, 10)
+    wait = WebDriverWait(driver, 30)
 
     login(driver, wait)
     course_and_category, course_url_list = get_courses_url(driver, wait)
